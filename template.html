@@ -1,0 +1,263 @@
+<title>PDF 批次解鎖</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#eef1f0; --panel:#ffffff; --ink:#18231f; --muted:#5b6b65; --line:#d3dbd8;
+  --accent:#1f6f5c; --accent-ink:#ffffff; --accent-soft:#dcece7;
+  --ok:#1f7a4a; --ok-soft:#e1f2e8; --bad:#b3372b; --bad-soft:#f8e3e0; --wait:#8a6d1c; --wait-soft:#f6efd9;
+  --drop:#f6f8f7;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#111715; --panel:#18201d; --ink:#e4ece9; --muted:#95a5a0; --line:#2c3833;
+    --accent:#4fb89b; --accent-ink:#0c1a15; --accent-soft:#1d332c;
+    --ok:#5fcf8f; --ok-soft:#173226; --bad:#f08b7f; --bad-soft:#3a1c19; --wait:#e2c46a; --wait-soft:#332b14;
+    --drop:#141b18;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#111715; --panel:#18201d; --ink:#e4ece9; --muted:#95a5a0; --line:#2c3833;
+  --accent:#4fb89b; --accent-ink:#0c1a15; --accent-soft:#1d332c;
+  --ok:#5fcf8f; --ok-soft:#173226; --bad:#f08b7f; --bad-soft:#3a1c19; --wait:#e2c46a; --wait-soft:#332b14;
+  --drop:#141b18;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;font-size:15px;line-height:1.6;padding-inline:16px;padding-block:32px 48px}
+.wrap{max-width:720px;margin:0 auto;display:grid;gap:20px}
+header h1{font-size:26px;margin:0 0 4px;letter-spacing:.02em;text-wrap:balance}
+header p{margin:0;color:var(--muted)}
+.lock{display:inline-block;width:.9em;height:.9em;vertical-align:-.08em;margin-right:.3em}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px;display:grid;gap:16px}
+.step{font-size:12px;letter-spacing:.12em;color:var(--muted);font-weight:500}
+.drop{border:2px dashed var(--line);border-radius:8px;background:var(--drop);padding:28px 16px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
+.drop:hover,.drop.over,.drop:focus-visible{border-color:var(--accent);background:var(--accent-soft);outline:none}
+.drop strong{display:block;font-size:16px}
+.drop span{color:var(--muted);font-size:13px}
+.pwrow{display:flex;gap:8px;flex-wrap:wrap}
+.pwrow input{flex:1 1 220px;min-width:0;font:inherit;font-family:"IBM Plex Mono",ui-monospace,monospace;padding:10px 12px;border:1px solid var(--line);border-radius:6px;background:var(--drop);color:var(--ink)}
+.pwrow input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button{font:inherit;border-radius:6px;padding:10px 16px;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+button:disabled{opacity:.45;cursor:not-allowed}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.summary{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+ul.files{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+ul.files li{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.fname{overflow-wrap:anywhere;font-weight:500}
+.fmeta{grid-column:1;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.right{grid-row:1/span 2;grid-column:2;display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.pill{font-size:12px;padding:2px 10px;border-radius:999px;white-space:nowrap}
+.pill.wait{background:var(--wait-soft);color:var(--wait)}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.pill.busy{background:var(--accent-soft);color:var(--accent)}
+.small{padding:4px 10px;font-size:13px}
+.empty{color:var(--muted);font-size:13px;margin:0}
+.note{font-size:13px;color:var(--muted);margin:0}
+.status{font-size:13px;margin:0;min-height:1.2em}
+.status.err{color:var(--bad)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1><svg class="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="4" y="11" width="16" height="10" rx="2" fill="none"/><path d="M8 11V7a4 4 0 0 1 7.6-1.7"/></svg>PDF 批次解鎖</h1>
+    <p>選取使用同一組密碼的 PDF，輸入密碼後一次產生沒有密碼的新檔。所有處理都在你的瀏覽器裡完成，檔案不會上傳到任何地方。</p>
+  </header>
+
+  <section class="panel">
+    <div class="step">第一步　選取 PDF</div>
+    <div class="drop" id="drop" tabindex="0" role="button" aria-label="選取 PDF 檔案">
+      <strong>點這裡選取檔案，或把 PDF 拖曳進來</strong>
+      <span>可以一次選多個檔案</span>
+    </div>
+    <input type="file" id="picker" accept="application/pdf,.pdf" multiple hidden>
+    <ul class="files" id="list"></ul>
+    <p class="empty" id="empty">尚未加入任何檔案。</p>
+  </section>
+
+  <section class="panel">
+    <div class="step">第二步　輸入密碼並解鎖</div>
+    <div class="pwrow">
+      <input type="password" id="pw" placeholder="PDF 的開啟密碼" autocomplete="off" spellcheck="false">
+      <button type="button" id="toggle" aria-pressed="false">顯示</button>
+    </div>
+    <div class="actions">
+      <button type="button" class="primary" id="run" disabled>開始解鎖</button>
+      <button type="button" id="zip" disabled>全部下載（ZIP）</button>
+      <button type="button" id="dropsaved" disabled>移除已下載</button>
+      <button type="button" id="clear" disabled>清空清單</button>
+      <span class="summary" id="summary"></span>
+    </div>
+    <p class="status" id="status">正在載入解鎖引擎…</p>
+    <p class="note">密碼錯的檔案會標示出來，換一組密碼再按一次「開始解鎖」，只會重試還沒成功的檔案。下載過的檔案會標成「已下載」，按「移除已下載」就能把它們從清單清掉，接著處理下一批。</p>
+  </section>
+</div>
+
+<script>/*QPDF_JS*/</script>
+<script>
+const WASM_B64="/*WASM_B64*/";
+const $=id=>document.getElementById(id);
+const items=[]; let qpdf=null, busy=false, dl=null;
+
+function b64ToBytes(s){const bin=atob(s);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u;}
+let qlog=[];
+Module({wasmBinary:b64ToBytes(WASM_B64),print:s=>qlog.push(s),printErr:s=>qlog.push(s)})
+  .then(m=>{qpdf=m;setStatus('');refresh();})
+  .catch(e=>setStatus('解鎖引擎載入失敗，請重新整理頁面再試一次。',true));
+
+(async()=>{try{dl=await window.claude?.use?.("downloads");}catch(e){dl=null;}})();
+
+function setStatus(t,err){const s=$('status');s.textContent=t;s.classList.toggle('err',!!err);}
+function fmtSize(n){return n<1024*1024?(n/1024).toFixed(0)+' KB':(n/1048576).toFixed(1)+' MB';}
+function outName(name){return name.replace(/\.pdf$/i,'')+'_無密碼.pdf';}
+
+function addFiles(list){
+  for(const f of list){
+    if(!/\.pdf$/i.test(f.name)&&f.type!=='application/pdf')continue;
+    if(items.some(it=>it.file.name===f.name&&it.file.size===f.size))continue;
+    items.push({file:f,state:'wait',msg:'等待解鎖',out:null});
+  }
+  refresh();
+}
+
+function refresh(){
+  const ul=$('list');ul.textContent='';
+  for(const [i,it] of items.entries()){
+    const li=document.createElement('li');
+    const n=document.createElement('div');n.className='fname';n.textContent=it.file.name;
+    const m=document.createElement('div');m.className='fmeta';
+    m.textContent=fmtSize(it.file.size)+(it.out?' → '+outName(it.file.name):'');
+    const r=document.createElement('div');r.className='right';
+    const p=document.createElement('span');p.className='pill '+it.state;p.textContent=it.saved?'已下載':it.msg;r.append(p);
+    if(it.out){const b=document.createElement('button');b.className='small';b.type='button';b.textContent=it.saved?'再下載':'下載';b.setAttribute('aria-label','下載 '+outName(it.file.name));b.onclick=()=>saveFile(outName(it.file.name),it.out,[it]);r.append(b);}
+    if(!busy){const b=document.createElement('button');b.className='small';b.type='button';b.textContent='移除';b.setAttribute('aria-label','移除 '+it.file.name);b.onclick=()=>{items.splice(i,1);refresh();};r.append(b);}
+    li.append(n,r,m);ul.append(li);
+  }
+  $('empty').hidden=items.length>0;
+  const done=items.filter(x=>x.out).length, todo=items.filter(x=>!x.out).length,
+        bad=items.filter(x=>x.state==='bad').length, saved=items.filter(x=>x.saved).length;
+  $('run').disabled=!qpdf||busy||todo===0;
+  $('zip').disabled=busy||done===0;
+  $('dropsaved').disabled=busy||saved===0;
+  $('clear').disabled=busy||items.length===0;
+  $('summary').textContent=items.length?`共 ${items.length} 個・完成 ${done}${saved?'・已下載 '+saved:''}${bad?'・失敗 '+bad:''}`:'';
+}
+
+function runQpdf(args){qlog=[];let rc;try{rc=qpdf.callMain(args);}catch(e){rc=2;qlog.push(String(e));}return rc;}
+function tryRead(p){try{const d=qpdf.FS.readFile(p);qpdf.FS.unlink(p);return d;}catch(e){return null;}}
+
+async function unlockOne(it,pw){
+  const buf=new Uint8Array(await it.file.arrayBuffer());
+  qpdf.FS.writeFile('/in.pdf',buf);
+  try{
+    // 先用輸入的密碼；失敗再試空密碼（只有「權限密碼」、能開啟但禁止列印或複製的檔案，空密碼即可解除）
+    const attempts=[pw];if(pw!=='')attempts.push('');
+    for(const p of attempts){
+      const rc=runQpdf(['--password='+p,'--decrypt','/in.pdf','/out.pdf']);
+      const out=tryRead('/out.pdf');
+      if(out&&rc!==2)return {ok:true,data:out,msg:'已解鎖'};
+    }
+    return {ok:false,msg:'密碼不對或檔案無法開啟'};
+  }finally{try{qpdf.FS.unlink('/in.pdf');}catch(e){}}
+}
+
+async function runAll(){
+  if(busy||!qpdf)return;
+  const pw=$('pw').value;
+  busy=true;setStatus('');
+  const todo=items.filter(x=>!x.out);
+  for(const it of todo){it.state='busy';it.msg='處理中';}
+  refresh();
+  for(const it of todo){
+    await new Promise(r=>setTimeout(r,20));
+    try{
+      const r=await unlockOne(it,pw);
+      if(r.ok){it.out=r.data;it.state='ok';it.msg=r.msg;}
+      else{it.state='bad';it.msg=r.msg;}
+    }catch(e){it.state='bad';it.msg='無法處理此檔案';}
+    refresh();
+  }
+  busy=false;refresh();
+  const bad=items.filter(x=>x.state==='bad').length;
+  if(bad)setStatus(`有 ${bad} 個檔案沒有解開，可以換一組密碼再按「開始解鎖」。`,true);
+  else setStatus('全部完成，可以逐一下載，或按「全部下載（ZIP）」。');
+}
+
+/* ---- 簡易 ZIP（不壓縮，支援中文檔名） ---- */
+const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+function crc32(u){let c=0xFFFFFFFF;for(let i=0;i<u.length;i++)c=CRC[(c^u[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function makeZip(files){
+  const enc=new TextEncoder(),parts=[],central=[];let off=0;
+  const d=new Date(),dt=((d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1)),dd=(((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate());
+  const used=new Set();
+  for(const f of files){
+    let name=f.name,k=2;while(used.has(name)){name=f.name.replace(/\.pdf$/i,'')+`(${k++}).pdf`;}used.add(name);
+    const nb=enc.encode(name),crc=crc32(f.data),sz=f.data.length;
+    const h=new DataView(new ArrayBuffer(30));
+    h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);h.setUint16(8,0,true);
+    h.setUint16(10,dt,true);h.setUint16(12,dd,true);h.setUint32(14,crc,true);h.setUint32(18,sz,true);h.setUint32(22,sz,true);
+    h.setUint16(26,nb.length,true);h.setUint16(28,0,true);
+    parts.push(new Uint8Array(h.buffer),nb,f.data);
+    const c=new DataView(new ArrayBuffer(46));
+    c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x0800,true);c.setUint16(10,0,true);
+    c.setUint16(12,dt,true);c.setUint16(14,dd,true);c.setUint32(16,crc,true);c.setUint32(20,sz,true);c.setUint32(24,sz,true);
+    c.setUint16(28,nb.length,true);c.setUint32(42,off,true);
+    central.push(new Uint8Array(c.buffer),nb);
+    off+=30+nb.length+sz;
+  }
+  const cdSize=central.reduce((a,b)=>a+b.length,0);
+  const e=new DataView(new ArrayBuffer(22));
+  e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);
+  e.setUint32(12,cdSize,true);e.setUint32(16,off,true);
+  return new Blob([...parts,...central,new Uint8Array(e.buffer)],{type:'application/zip'});
+}
+
+async function saveFile(name,data,marks){
+  const blob=data instanceof Blob?data:new Blob([data],{type:'application/pdf'});
+  const done=()=>{if(marks)for(const it of marks)it.saved=true;refresh();};
+  if(dl){
+    try{await dl.save({filename:name,data:blob});setStatus('已儲存：'+name);done();}
+    catch(e){
+      if(e&&e.code==='declined')setStatus('已取消儲存。');
+      else if(e&&e.code==='rate_limited')setStatus('上一個儲存視窗還開著，請先完成它。',true);
+      else setStatus('這裡無法儲存檔案，請改用下載的 HTML 版本開啟本工具。',true);
+    }
+    return;
+  }
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.append(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},4000);
+  setStatus('已下載：'+name);done();
+}
+
+function zipAll(){
+  const ready=items.filter(x=>x.out);
+  if(!ready.length)return;
+  const d=new Date(),stamp=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  saveFile(`已解鎖PDF_${stamp}.zip`,makeZip(ready.map(x=>({name:outName(x.file.name),data:x.out}))),ready);
+}
+
+function dropSaved(){
+  const n=items.filter(x=>x.saved).length;
+  if(!n)return;
+  for(let i=items.length-1;i>=0;i--)if(items[i].saved)items.splice(i,1);
+  setStatus(`已從清單移除 ${n} 個下載過的檔案。`);refresh();
+}
+
+const drop=$('drop'),picker=$('picker');
+drop.onclick=()=>picker.click();
+drop.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();picker.click();}};
+picker.onchange=()=>{addFiles(picker.files);picker.value='';};
+['dragenter','dragover'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove('over');}));
+drop.addEventListener('drop',e=>addFiles(e.dataTransfer.files));
+$('toggle').onclick=()=>{const pw=$('pw'),show=pw.type==='password';pw.type=show?'text':'password';$('toggle').textContent=show?'隱藏':'顯示';$('toggle').setAttribute('aria-pressed',String(show));};
+$('pw').addEventListener('keydown',e=>{if(e.key==='Enter')runAll();});
+$('run').onclick=runAll;
+$('zip').onclick=zipAll;
+$('dropsaved').onclick=dropSaved;
+$('clear').onclick=()=>{items.length=0;setStatus('');refresh();};
+refresh();
+</script>
